@@ -1,25 +1,36 @@
-cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
-project(bm3d LANGUAGES CXX CUDA)
+cmake_minimum_required(VERSION 3.18)
+project(bm3d_gpu LANGUAGES CXX CUDA)
 
-include_directories(
-	${CMAKE_CURRENT_SOURCE_DIR}/include
-	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Silence warnings about unknown compiler features with older CMake
+if(POLICY CMP0125)
+  cmake_policy(SET CMP0125 NEW)
+endif()
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+set(SRC
+    src/blockmatching.cu
+    src/dct8x8.cu
+    src/filtering.cu
+    Bm3dGpu.cpp
 )
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+add_library(bm3d_gpu STATIC ${SRC})
 
-# The following lines build the main executable.
-add_executable(bm3d
-	include/CImg.h
-	include/stopwatch.hpp
-	include/indices.cuh
-	include/params.hpp
-	include/bm3d.hpp
-	src/filtering.cu
-	src/blockmatching.cu
-	src/dct8x8.cu
-	src/main_nodisplay.cpp
-)
+target_link_libraries(bm3d_gpu PUBLIC cudart cufft)
 
-target_link_libraries(bm3d cufft cudart png)
+target_include_directories(bm3d_gpu PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>)
+
+find_package(OpenCV REQUIRED)
+
+target_link_libraries(bm3d_gpu PUBLIC ${OpenCV_LIBS})
+target_include_directories(bm3d_gpu PUBLIC ${OpenCV_INCLUDE_DIRS})
+
+add_executable(demo demo.cpp)
+
+target_link_libraries(demo PRIVATE bm3d_gpu ${OpenCV_LIBS})
